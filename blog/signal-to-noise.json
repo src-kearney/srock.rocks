@@ -77,7 +77,7 @@
     {
       "type": "text",
       "content": [
-        "I often hear the argument that users cannot understand the technical intricacies of machine learning. But it doesn't make it any easier to understand systems when they're fundamentally opaque. Similar to how nutrition facts don't require a PhD in biochemistry to read, recommenders don't require a PhD in deep learning to understand.",
+        "I often hear the argument that the median user cannot understand the technical intricacies of machine learning. But it doesn't make it any easier to understand systems when they're fundamentally opaque. Similar to how nutrition facts don't require a PhD in biochemistry to read, recommenders don't require a PhD in deep learning to understand.",
         "It sure would be nice to see a high-resolution view of all the various optimization targets behind the system. And users should have an idea of the cause and effect of app interactions - if DMing photos of Magic the Gathering cards to my friends results in my feed being smothered in MTG content, then my choice is clear - I'll be DMing my friends more photos of MTG cards. And finally, we need to provide to users more explicit customizability features over the algorithm, passing the joystick from the engineers to the users. In opaque systems built on inferred behavioral signals, this may be the clearest signal the model will ever receive.",
         "We are the experts in our own taste, after all."
       ]
