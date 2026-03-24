@@ -1,1 +1,1 @@
-# https://srock.rocks
+https://srock.rocks
