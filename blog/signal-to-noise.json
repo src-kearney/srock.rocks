@@ -105,7 +105,7 @@
         "## Transformer-based recommendation",
         "**[BST](https://arxiv.org/abs/1905.06874)** (Alibaba, 2019) applies transformer self-attention across a user's ordered interaction history. The model learns which past items are most relevant to the current moment and encodes *time offset* from the target item instead of absolute position.",
         "```\n item₋₄   item₋₃   item₋₂   item₋₁   target\n (Δt=−4d) (Δt=−3d) (Δt=−1d) (Δt=−2h)   │\n   │         │         │         │        │\n   └─────────┴────── attention ──┴────────┘\n                         │\n                   user embedding\n```",
-        "The model reads your history like a sentence. Tokens in order, like words. For Alibaba, that might be the last ten products you browsed. You aren't seeing that sentence, and you can't edit it.\n\nThis, in particular, is a ubiquitous product decision rather than a feature bottlenecked by technological limitations. In terms of technological capabilities: you could see that sentence. You could edit it.",
+        "The model reads your history like a sentence. Tokens in order, like words. For Alibaba, that might be the last ten products you browsed. You aren't seeing that sentence, and you can't edit it.\n\nThis, in particular, is a ubiquitous product decision rather than a feature bottlenecked by technological limitations. In terms of technological capabilities: you could see that sentence. You could edit it."
       ]
     },
     {
