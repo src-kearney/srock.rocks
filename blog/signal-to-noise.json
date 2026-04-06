@@ -78,8 +78,8 @@
       "type": "text",
       "content": [
         "I often hear the argument that the median user cannot understand the technical intricacies of machine learning. But it doesn't make it any easier to understand systems when they're fundamentally opaque. Similar to how nutrition facts don't require a PhD in biochemistry to read, recommenders don't require a PhD in deep learning to understand.",
-        "-----",
-        "By now I hope to have convinced you that ML understandability is an important problem, and that there's a tremendous amount of greenfield experimentation left to do in this space. And now, we're motivated to understand the _how_."
+        "By now I hope to have convinced you that ML understandability is an important problem, and that there's a tremendous amount of greenfield experimentation left to do in this space. And now, we're motivated to understand the _how_.",
+        "-----"
       ]
     },
     {
@@ -106,7 +106,6 @@
         "**[BST](https://arxiv.org/abs/1905.06874)** (Alibaba, 2019) applies transformer self-attention across a user's ordered interaction history. The model learns which past items are most relevant to the current moment and encodes *time offset* from the target item instead of absolute position.",
         "```\n item₋₄   item₋₃   item₋₂   item₋₁   target\n (Δt=−4d) (Δt=−3d) (Δt=−1d) (Δt=−2h)   │\n   │         │         │         │        │\n   └─────────┴────── attention ──┴────────┘\n                         │\n                   user embedding\n```",
         "The model reads your history like a sentence. Tokens in order, like words. For Alibaba, that might be the last ten products you browsed. You aren't seeing that sentence, and you can't edit it.\n\nThis, in particular, is a ubiquitous product decision rather than a feature bottlenecked by technological limitations. In terms of technological capabilities: you could see that sentence. You could edit it.",
-        "-----"
       ]
     },
     {
@@ -116,6 +115,7 @@
     {
       "type": "text",
       "content": [
+        "-----",
         "## Mixture of Experts",
         "**[Mixture of Experts](https://arxiv.org/abs/1701.06538)** (Shazeer et al., 2017) replaces a single feedforward network with N specialized experts and a gating network that routes each token to only the top-k of them. This way, most of the model is idle on any given input. You get a much larger effective model for roughly the same compute cost per forward pass.",
         "```\n          input token\n               │\n        [gating network]\n       ┌───┬───┴───┬───┐\n     FFN₁ FFN₂  FFN₃ FFN₄   ← N experts\n       ✗    ✓     ✓    ✗    ← top-2 selected\n            │     │\n       [weighted sum]\n            │\n          output\n```"
