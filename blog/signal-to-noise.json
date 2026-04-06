@@ -77,8 +77,8 @@
     {
       "type": "text",
       "content": [
-        "I often hear the argument that the median user cannot understand the technical intricacies of machine learning. But it doesn't make it any easier to understand systems when they're fundamentally opaque. Similar to how nutrition facts don't require a PhD in biochemistry to read, recommenders don't require a PhD in deep learning to understand.",
-        "By now I hope to have convinced you that ML understandability is an important problem, and that there's a tremendous amount of greenfield experimentation left to do in this space. And now, we're motivated to understand the _how_.",
+        "I often hear the argument that the median user cannot understand the technical intricacies of machine learning. But it doesn't make it any easier to understand systems when they're fundamentally opaque. Similar to how nutrition facts don't require a PhD in biochemistry to read, recommenders shouldn't require a PhD in deep learning to understand.",
+        "By now I hope to have convinced you that ML understandability is an important problem, and that there's a tremendous amount of greenfield experimentation left to do in this space. And now, we're motivated to understand the _how_. To understand where this opacity comes from, you must first understand how these systems actually work.",
         "-----"
       ]
     },
