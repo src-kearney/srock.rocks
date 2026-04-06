@@ -126,7 +126,8 @@
     },
     {
       "type": "callout",
-      "content": "I'm exploring signal-to-noise in [remora](https://github.com/src-kearney/remora), a compiler for heterogeneous MoE inference."
+      "href": "https://github.com/src-kearney/remora",
+      "content": "I'm exploring signal-to-noise in remora, a compiler for heterogeneous MoE inference."
     }
   ]
 }
