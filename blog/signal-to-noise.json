@@ -110,6 +110,10 @@
       ]
     },
     {
+      "type": "component",
+      "name": "RecSys"
+    },
+    {
       "type": "text",
       "content": [
         "## Mixture of Experts",
