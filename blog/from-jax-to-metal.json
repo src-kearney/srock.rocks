@@ -143,9 +143,9 @@
     },
     {
       "content": [
-        "The philosophy of Python is that you can write a single, concise line of code to accomplish something powerful without worrying about the 5 triple kickflips it has to do under the hood to accomplish that something. The kickflips are abstracted away.",
-        "Comparatively, MLIR does not share this quality with Python. The projection is six lines. The elementwise pass is twenty-five. One Python expression (`relu(x + bias)`) became two broadcasts, an add, a constant, another broadcast, and a max.",
-        "This verbosity is the point - StableHLO makes every implicit operation explicit. Where in Python, broadcasting is invisible, in MLIR it costs two ops. Python's `relu` is sugar, but in MLIR it's `max(x, 0)`, spelled out explicitly. It also reveals an optimization opportunity: those five ops: broadcast, broadcast, add, broadcast, and max, each touch every one of the `1 × 512 × 768 = 393,216` values in the tensor independently. A naive backend launches five separate GPU kernels, but a smart compiler fuses them into one. That fusion pass is part of what this series builds.",
+        "In Python, you can write a single, concise line of code to accomplish something powerful without worrying about the 5 triple kickflips it has to do under the hood to accomplish that something. The kickflips are abstracted away.",
+        "One Python expression (`relu(x + bias)`) became two broadcasts, an add, a constant, another broadcast, and a max, when we exported the JAX to StableHLO.",
+        "This verbosity is the point - StableHLO makes operations implicit in JAX explicit in IR. Where in Python, broadcasting is invisible, in MLIR it costs two ops. Python's `relu` is sugar, but in MLIR it's `max(x, 0)`, spelled out. It also reveals an optimization opportunity: those five ops: broadcast, broadcast, add, broadcast, and max, each touch every one of the `1 × 512 × 768 = 393,216` values in the tensor independently. A naive backend launches five separate GPU kernels, but a compiler can fuse them into one.",
         "The IR is in hand. Now the actual work begins.",
         "> [github.com/src-kearney/remora](https://github.com/src-kearney/remora/tree/main/attention-jax-export)"
       ],
