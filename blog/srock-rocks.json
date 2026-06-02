@@ -1,0 +1,14 @@
+{
+    "slug": "srock-rocks",
+    "title": "srock.rocks",
+    "date": "2026-06-01",
+    "tags": [],
+    "chunks": [
+        {
+            "type": "text",
+            "content": [
+                "This is the first one."
+            ]
+        }
+    ]
+}
