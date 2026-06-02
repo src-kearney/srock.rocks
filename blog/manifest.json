@@ -1,10 +1,10 @@
 [
   {
-    "id": "17",
-    "slug": "srock-rocks",
-    "name": "srock.rocks",
+    "id": "18",
+    "slug": "first-pr-tt-mlir",
+    "name": "tt-mlir PR #8525",
     "timestamp": "2026-06-01T00:00:00Z",
-    "tags": [],
+    "tags": ["tt-mlir", "MLIR", "Compilers", "OSS"],
     "type": "blog",
     "published": true
   },
