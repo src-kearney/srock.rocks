@@ -1,0 +1,12 @@
+{
+  "slug": "denton-loves-school",
+  "title": "Denton loves school",
+  "date": "2026-05-23",
+  "tags": ["fiction"],
+  "chunks": [
+    {
+      "type": "text",
+      "content": ["Denton is really smart."]
+    }
+  ]
+}

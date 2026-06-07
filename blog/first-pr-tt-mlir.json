@@ -20,7 +20,7 @@
       "content": [
         "`ArrayRef::back()` is LLVM's bounds-checked accessor for the last element of an array. Calling it on an empty array hits a precondition assertion in debug builds, so somewhere in the optimizer something was calling `.back()` on a shape with no elements.",
         "```\n$ grep -rn \"shape.back()\" lib/Dialect/TTNN/ --include=\"*.cpp\"\nlib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp:781:      int64_t cols = (shape.back() + TILE_WIDTH - 1) / TILE_WIDTH;\nlib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp:783:          (outputType.getNumElements() / shape.back() + TILE_HEIGHT - 1) /\nlib/Dialect/TTNN/Transforms/Decomposition/DistributedRMSNormDecompositionRewritePattern.cpp:32:  if (shape[shape.size() - 2] != 32 || shape.back() % 32 != 0) ...\n```",
-        "Two hits in `MemoryLayoutPropagation.cpp`, one in an unrelated decomposition pass. `MemoryLayoutPropagation` is an analysis pass that only runs under the optimizer, which immediately explained the level-dependent behavior. At level 0 the optimizer doesn't run, so this code never executes."
+        "Two hits in `MemoryLayoutPropagation.cpp`, one in an unrelated decomposition pass. `MemoryLayoutPropagation` is an analysis pass that only runs under [the optimizer](https://docs.tenstorrent.com/tt-mlir/specs/ttnn-optimizer.html), which immediately explained the level-dependent behavior. At level 0 the optimizer doesn't run, so this code never executes."
       ]
     },
     {
