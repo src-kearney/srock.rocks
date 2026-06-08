@@ -2,7 +2,7 @@
   {
     "id": "18",
     "slug": "first-pr-tt-mlir",
-    "name": "tt-mlir PR #8525",
+    "name": "No Shape to Shard",
     "timestamp": "2026-06-01T00:00:00Z",
     "tags": ["tt-mlir", "MLIR", "Compilers", "OSS"],
     "type": "blog",

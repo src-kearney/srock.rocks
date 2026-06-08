@@ -1,0 +1,82 @@
+{
+  "slug": "first-pr-tt-mlir",
+  "title": "No Shape to Shard",
+  "date": "2026-06-01",
+  "tags": ["tt-mlir", "MLIR", "Compilers", "OSS"],
+  "chunks": [
+    {
+      "type": "text",
+      "content": [
+        "[tt-mlir](https://github.com/tenstorrent/tt-mlir) is Tenstorrent's open-source MLIR compiler stack. It handles lowering from TTIR (their high-level ML IR) down to TTNN (their hardware runtime), making decisions along the way about [memory layout](https://github.com/tenstorrent/tt-mlir/blob/636a8c1f9a287970a9123c17fa473249978fd097/lib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp#L317), [how tensors are sharded across cores](https://github.com/tenstorrent/tt-mlir/blob/636a8c1f9a287970a9123c17fa473249978fd097/lib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp#L91-L97), and [tiling](https://github.com/tenstorrent/tt-mlir/blob/636a8c1f9a287970a9123c17fa473249978fd097/include/ttmlir/Dialect/TTNN/Types/Types.h#L12-L13). I've been wanting to get involved in a serious compiler project for a little while, and scrolling through issues, I found a small, well-scoped ticket which happened to be unclaimed.",
+        "[Issue #8322](https://github.com/tenstorrent/tt-mlir/issues/8322) documents a crash: compiling any operation on a rank-0 scalar tensor (e.g. a `tensor<f32>` with no dimensions, just a bare scalar value) blows up when optimization is enabled.",
+        "```\nttmlir-opt: /opt/ttmlir-toolchain/include/llvm/ADT/ArrayRef.h:157:\nconst T &llvm::ArrayRef<long>::back() const [T = long]:\nAssertion `!empty()' failed.\n```",
+        "The minimal case to get a repro was a scalar add:",
+        "```mlir\nfunc.func @scalar_add(%arg0: tensor<f32>, %arg1: tensor<f32>) -> tensor<f32> {\n  %0 = \"ttir.add\"(%arg0, %arg1) : (tensor<f32>, tensor<f32>) -> tensor<f32>\n  return %0 : tensor<f32>\n}\n```",
+        "The issue noted that at `optimization_level=0` (no optimizer passes, direct lowering) the same program compiled and ran fine, and that the crash appeared at level 1."
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "`ArrayRef::back()` is LLVM's bounds-checked accessor for the last element of an array. It carries the same semantics as a standard `std::vector::back()`, just on an `ArrayRef`. The stacktrace pointed to [ArrayRef.h:157](https://github.com/llvm/llvm-project/blob/9a6b20fa7ae8bd0a512612f83b0c0a0b9566810b/llvm/include/llvm/ADT/ArrayRef.h#L155-L159):",
+        "```cpp\nprivate:\n  /// The start of the array, in an external buffer.\n  const T *Data = nullptr;\n\n  /// The number of elements.\n  size_type Length = 0;\n\n...\n\n  /// empty - Check if the array is empty.\n  bool empty() const { return Length == 0; }\n\n  const T *data() const { return Data; }\n\n  /// size - Get the array size.\n  size_t size() const { return Length; }\n\n  /// front - Get the first element.\n  const T &front() const {\n    assert(!empty());\n    return Data[0];\n  }\n\n  /// back - Get the last element.\n  const T &back() const {\n    assert(!empty());\n    return Data[Length-1];\n  }\n```",
+        "MLIR APIs like `op.getOperands()` and `op.getResults()` hand you an `ArrayRef`. Tensor shapes are `ArrayRef<int64_t>`, `long` on this platform, so the crash points to a `shape.back()` call.",
+        "```\n$ grep -rn \"shape.back()\" lib/Dialect/TTNN/ --include=\"*.cpp\"\nlib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp:781:      int64_t cols = (shape.back() + TILE_WIDTH - 1) / TILE_WIDTH;\nlib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp:783:          (outputType.getNumElements() / shape.back() + TILE_HEIGHT - 1) /\nlib/Dialect/TTNN/Transforms/Decomposition/DistributedRMSNormDecompositionRewritePattern.cpp:32:  if (shape[shape.size() - 2] != 32 || shape.back() % 32 != 0) ...\n```",
+        "`MemoryLayoutPropagation` is an analysis pass that only runs under [the optimizer](https://docs.tenstorrent.com/tt-mlir/specs/ttnn-optimizer.html), which immediately explained the level-dependent behavior. At level 0 the optimizer doesn't run, so this code never executes."
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "Tenstorrent devices have a two-level memory hierarchy. From [the TTNN optimizer docs](https://docs.tenstorrent.com/tt-mlir/specs/ttnn-optimizer.html):",
+        "```\n┌───────────────────────────────────────────────┐\n│  Tensix Cores: [L1] [L1] [L1] ... [L1]        │\n│                  │     │     │       │        │\n│                  └─────┴─────┴───────┘        │\n│                          │                    │\n│                 NoC (Network on Chip)          │\n│                          │                    │\n│                   ┌──────┴──────┐             │\n│                   │    DRAM     │             │\n│                   └─────────────┘             │\n└───────────────────────────────────────────────┘\n```",
+        "L1 is fast, on-chip SRAM local to each Tensix core (~1.5 MB per core). DRAM is slow, shared, accessed over the NoC. `MemoryLayoutPropagation` decides which tensors live where, and how they are sharded across the core grid. Both lines are inside [`addReshardCandidates`](https://github.com/tenstorrent/tt-mlir/blob/7f37cd1fbd0b18d3b58ab3f1973ffb8a7b0eced0/lib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp#L748-L752):",
+        "```cpp\nvoid MemoryLayoutPropagation::addReshardCandidates(\n    std::vector<InputCandidate> &candidates, Operation *op, unsigned operandIdx,\n    Value operand, TTNNLayoutAttr currentLayout, RankedTensorType tensorType,\n    const llvm::SmallVector<BeamCandidate, 0> *producerBeam,\n    Operation *producerOp, size_t resultIdx, size_t maxCandidates);\n```",
+        "This function generates candidate memory layouts for each tensor operand in the compute graph. When [the optimizer](https://docs.tenstorrent.com/tt-mlir/specs/ttnn-optimizer.html) is deciding how to shard data across Tenstorrent cores, it calls this to enumerate possible resharding options for each edge. Tenstorrent hardware tiles tensors into 32x32 blocks (`TILE_HEIGHT = TILE_WIDTH = 32`), and a central heuristic in this function is `maxGridVolume`, a cap on how large a grid the reshard is allowed to target.",
+        "[Here's the full block that computes it](https://github.com/tenstorrent/tt-mlir/blob/7f37cd1fbd0b18d3b58ab3f1973ffb8a7b0eced0/lib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp#L793-L811):",
+        "```cpp\n// Compute max grid volume from output tensor tile count. For tiled outputs,\n// reshard grids larger than the output tile count are wasteful - the op can't\n// produce a sharded output on more cores than it has tiles.\nint64_t maxGridVolume = std::numeric_limits<int64_t>::max();\nif (op->getNumResults() > 0) {\n  auto outputType = mlir::cast<RankedTensorType>(op->getResult(0).getType());\n  auto outputLayout =\n      mlir::dyn_cast_or_null<TTNNLayoutAttr>(outputType.getEncoding());\n  if (outputLayout &&\n      mlir::isa<ttcore::TileType>(outputLayout.getElementType())) {\n    auto shape = outputType.getShape();\n    int64_t cols = (shape.back() + TILE_WIDTH - 1) / TILE_WIDTH;\n    int64_t rows =\n        (outputType.getNumElements() / shape.back() + TILE_HEIGHT - 1) /\n        TILE_HEIGHT;\n    maxGridVolume = rows * cols;\n  }\n}\n```",
+        "`shape.back()` gets the last dimension: the column count.\n- `tensor<64x128xf32>`: shape *-->* `[64, 128]`, `shape.back()` *-->* 128\n- `tensor<f32>`: shape *-->* `[]` *-->* `<err>`\n\nCalling `back()` on an empty `ArrayRef` is the assertion failure.",
+        "Once `maxGridVolume` is computed, it gets passed downstream to [`generateReshardCandidates`](https://github.com/tenstorrent/tt-mlir/blob/7f37cd1fbd0b18d3b58ab3f1973ffb8a7b0eced0/lib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp#L1021-L1034), which uses it to filter out grids that are too large:",
+        "```cpp\nstd::vector<TTNNLayoutAttr> filtered;\nfor (const auto &layout : allSharded) {\n  if (layout == currentLayout) { continue; }\n  if (!layout.getMemLayout() ||\n      !isShardedMemoryLayout(layout.getMemLayout().getValue())) {\n    continue;\n  }\n  if (ttmlir::utils::volume(layout.getGridShape()) > maxGridVolume) {\n    continue;  // <- this is where maxGridVolume actually does work\n  }\n  filtered.push_back(layout);\n}\n```",
+        "The crash happens before any of that filtering. It happens during the `maxGridVolume` computation itself, when the output is a scalar and `shape` is empty."
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "The fix is a [guard added to the condition](https://github.com/tenstorrent/tt-mlir/blob/7f37cd1fbd0b18d3b58ab3f1973ffb8a7b0eced0/lib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp#L802-L811):",
+        "```cpp\nif (outputLayout &&\n    mlir::isa<ttcore::TileType>(outputLayout.getElementType()) &&\n    outputType.getRank() > 0) {   // <- added\n  auto shape = outputType.getShape();\n  int64_t cols = (shape.back() + TILE_WIDTH - 1) / TILE_WIDTH;\n  int64_t rows =\n      (outputType.getNumElements() / shape.back() + TILE_HEIGHT - 1) /\n      TILE_HEIGHT;\n  maxGridVolume = rows * cols;\n}\n```",
+        "For rank-0 tensors, the block is skipped entirely and `maxGridVolume` stays at `std::numeric_limits<int64_t>::max()`, no cap applied. Scalar tensors don't have tiles, so the heuristic doesn't apply to them and leaving the cap unconstrained is the right behavior."
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "The fix was the easy part. Tests are where I got three assumptions corrected, one after the other.",
+        "First assumption: the bug appears at `optimization_level=1`, so test at level 1.",
+        "The issue noted crash at `optimization_level=1`. I added `@scalar_add` to the existing `ttir_to_ttnn_pipeline.mlir` file:",
+        "```mlir\n// (test - first attempt)\nfunc.func @scalar_add(%arg0: tensor<f32>, %arg1: tensor<f32>) -> tensor<f32> {\n  %0 = \"ttir.add\"(%arg0, %arg1) : (tensor<f32>, tensor<f32>) -> tensor<f32>\n  // CHECK: \"ttnn.add\"\n  return %0 : tensor<f32>\n}\n```",
+        "The reviewer came back with:\n\n> *This test won't exercise your fix because you need optimization_level=2 to go through MemoryLayoutPropagation. Please transfer the test into test/ttmlir/Dialect/TTNN/optimizer/ and add a few more ops into the func so that reshard exploration is triggered.*",
+        "The test passed because the pass containing the crash never ran. Nice to see green, but this one was a false positive.",
+        "That sent me to look at how the pipeline actually gates on optimization level. The relevant code is in [`resolveOptimizationLevelOptions`](https://github.com/tenstorrent/tt-mlir/blob/7f37cd1fbd0b18d3b58ab3f1973ffb8a7b0eced0/include/ttmlir/Dialect/TTNN/Pipelines/TTNNPipelines.h#L516-L537):",
+        "```cpp\nvoid resolveOptimizationLevelOptions() const {\n  // ...\n  if (optimizerPassEnabled.getNumOccurrences() == 0) {\n    optimizerPassEnabled = (optimizationLevel >= 1);\n  }\n  if (memoryLayoutAnalysisEnabled.getNumOccurrences() == 0) {\n    memoryLayoutAnalysisEnabled = (optimizationLevel >= 2);  // <- here\n  }\n  if (enableGreedyOptimizer.getNumOccurrences() == 0) {\n    enableGreedyOptimizer = (optimizationLevel >= 1);\n  }\n  // ...\n}\n```",
+        "`optimizerPassEnabled` gates at level 1. `memoryLayoutAnalysisEnabled` (what actually enables `MemoryLayoutPropagation`) gates at level 2. The issue's reproducer used a real system descriptor, which may enable different behavior at level 1. On the mock device, level 2 is what's required. Some might call this tribal knowledge, others would call it thoroughly-documented through self-documenting code, I'm inclined to side with the latter half, but either way I'm lazy-loading the information.",
+        "Second assumption: reproducing this requires real hardware.",
+        "I told him something along the lines of \"I'm happy to repro if I could get early TT cloud access\", not entirely without ulterior motive. Turns out, the crash reproduces on the mock device, as long as you're at level 2: **no TT hardware needed**. My no-longer-clever offer to purchase compute came approximately twenty-five seconds prior to this epiphany."
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "I moved the test to a [dedicated file](https://github.com/tenstorrent/tt-mlir/blob/7f37cd1fbd0b18d3b58ab3f1973ffb8a7b0eced0/test/ttmlir/Dialect/TTNN/optimizer/scalar_tensor.mlir), switched to `optimization_level=2`, and chained four scalar adds to give the reshard exploration enough edges to actually reach `addReshardCandidates`:",
+        "```mlir\n// REQUIRES: opmodel\n// RUN: ttmlir-opt --ttir-to-ttnn-backend-pipeline=\"optimization-level=2\" -o %t %s\n// RUN: FileCheck %s --input-file=%t\nmodule attributes {} {\n  // CHECK-LABEL: func.func @scalar_add\n  func.func @scalar_add(%arg0: tensor<f32>, %arg1: tensor<f32>) -> tensor<f32> {\n    %0 = \"ttir.add\"(%arg0, %arg1) : (tensor<f32>, tensor<f32>) -> tensor<f32>\n    %1 = \"ttir.add\"(%0, %arg1)   : (tensor<f32>, tensor<f32>) -> tensor<f32>\n    %2 = \"ttir.add\"(%1, %arg0)   : (tensor<f32>, tensor<f32>) -> tensor<f32>\n    %3 = \"ttir.add\"(%2, %1)      : (tensor<f32>, tensor<f32>) -> tensor<f32>\n    return %3 : tensor<f32>\n  }\n}\n```",
+        "CI flagged 0% patch coverage because `// REQUIRES: opmodel` skips the test when `-DTTMLIR_ENABLE_OPMODEL=ON` isn't set, meaning the two new lines never executed in the coverage run. I assumed transient failure and kept rerunning.",
+        "Third assumption: CI compute budget is infinity, no approval needed.",
+        "My instinct when CI goes red for reasons that look unrelated to my diff is to hit rerun and hope. What I didn't know: in this repo, each merge of `main` into a community contributor's branch re-triggers workflow approval requirements, meaning a maintainer has to manually re-approve every single time. I'd been merging `main` to keep my branch up-to-date (in addition to a couple spins on the slot machine of transient failure). He asked me to stop. Fair enough.",
+        "To gain confidence in the guard, I checked out `main` and ran the test 2 ways, side-by-side:",
+        "```\n$ git checkout main -- lib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp \\\n  && cmake --build build --target ttmlir-opt 2>&1 | tail -3 \\\n  && llvm-lit -av test/ttmlir/Dialect/TTNN/optimizer/scalar_tensor.mlir\nAssertion `!empty()' failed.\nFailed: 1 (100.00%)\n\n$ git checkout fix/8322-rank-0-scalar-crash -- lib/Dialect/TTNN/Analysis/MemoryLayoutPropagation.cpp \\\n  && cmake --build build --target ttmlir-opt 2>&1 | tail -3 \\\n  && llvm-lit -av test/ttmlir/Dialect/TTNN/optimizer/scalar_tensor.mlir\nPassed: 1 (100.00%)\n```",
+        "The reviewer approved and the PR merged as squash commit [`1ead25f`](https://github.com/tenstorrent/tt-mlir/commit/1ead25fea) into `tenstorrent:main`. Suddenly, contributing to the Tenstorrent compiler stack is no longer mysterious."
+      ]
+    }
+  ]
+}
