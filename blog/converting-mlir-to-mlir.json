@@ -31,29 +31,29 @@
         "annotations": [
           {
             "term": "jnp.matmul",
-            "definition": "Matrix multiply. Projects each of the 512 token embeddings through the weight matrix. Core op in Q, K, V attention projections.",
+            "definition": "Matrix multiply. Core Q/K/V projection op.",
             "why": "One call in Python, one op in the output IR. Clean lowering."
           },
           {
             "term": "jax.jit",
-            "definition": "Just-In-Time compile. Traces the function and hands it to XLA. export() only works on jit-compiled functions.",
-            "why": "JIT is the bridge between Python and the compiler. Without it JAX runs eagerly and there's nothing to export."
+            "definition": "JIT-compiles the function. export() only works on jit-compiled functions.",
+            "why": "Without it JAX runs eagerly and there's nothing to export."
           },
           {
             "term": "ShapeDtypeStruct",
             "occurrence": 1,
-            "definition": "A tensor's shape and dtype, no actual data. JAX traces the function symbolically using these. No real numbers needed.",
+            "definition": "Shape and dtype only, no data. JAX traces symbolically from these.",
             "why": "Export needs static shapes upfront so the MLIR output can be fully typed at compile time."
           },
           {
             "term": "(1, 512, 768)",
-            "definition": "Batch 1, 512 tokens, 768 hidden dimensions. BERT-base hidden size.",
+            "definition": "Batch 1, 512 tokens, 768 hidden dims. BERT-base.",
             "why": "512 is the standard max sequence length for BERT-class models; 768 is the standard hidden dim."
           },
           {
             "term": "(768, 768)",
-            "definition": "Square weight matrix. Input and output dimensionality are the same. The projection stays in the same embedding space.",
-            "why": "In self-attention, Q/K/V projections preserve the embedding size. In, out, same."
+            "definition": "Square weight matrix. Projection preserves embedding size.",
+            "why": "In self-attention, Q/K/V projections preserve the embedding size."
           }
         ]
       },
@@ -62,18 +62,18 @@
         "annotations": [
           {
             "term": "dot_general",
-            "definition": "StableHLO's generalized dot product. Handles matmul, batched matmul, arbitrary tensor contractions.",
-            "why": "jnp.matmul compiled to exactly one op. No broadcasting, no reshaping. Clean 1:1 lowering."
+            "definition": "StableHLO's generalized dot product. Handles matmul, batched matmul, tensor contractions.",
+            "why": "jnp.matmul compiled to exactly one op. No broadcasting, no reshaping."
           },
           {
             "term": "contracting_dims = [2] x [0]",
-            "definition": "Which dimensions to sum over: dim 2 of the first tensor (hidden) against dim 0 of the second (rows). The inner product of matrix multiplication.",
-            "why": "Explicit dimension spec, nothing implicit. The compiler knows exactly what to fuse and parallelize."
+            "definition": "Dimensions to contract: dim 2 of input (hidden) against dim 0 of weight (rows).",
+            "why": "Explicit dimension spec. The compiler knows exactly what to fuse and parallelize."
           },
           {
             "term": "tensor<1x512x768xf32>",
             "occurrence": 1,
-            "definition": "MLIR's static tensor type. Shape [1, 512, 768], element type float32.",
+            "definition": "Static tensor type. Shape [1, 512, 768], element type f32.",
             "why": "MLIR is fully typed at compile time. Shape errors surface before any hardware code is generated."
           }
         ]
@@ -93,17 +93,17 @@
         "annotations": [
           {
             "term": "jax.nn.relu",
-            "definition": "Rectified Linear Unit. f(x) = max(0, x). Clamps all negative activations to zero.",
+            "definition": "f(x) = max(0, x). Clamps negatives to zero.",
             "why": "Introduces non-linearity after the bias add. Without it the whole layer is linear regardless of depth."
           },
           {
             "term": "x + bias",
-            "definition": "Adds a per-dimension offset to every token embedding. The bias is 768-dim and JAX broadcasts it across all 512 tokens automatically.",
+            "definition": "Per-dimension offset. JAX broadcasts the 768-dim bias across all 512 tokens automatically.",
             "why": "Broadcasting is implicit in Python. In the MLIR output you can see what it actually costs: two ops before the add."
           },
           {
             "term": "(768,)",
-            "definition": "One scalar bias per hidden dimension. No batch or sequence axis. Same bias for every token in every sequence.",
+            "definition": "One bias value per hidden dim, shared across all tokens.",
             "why": "Bias is positionally invariant. Each of the 768 hidden units gets its own offset, shared across the sequence."
           }
         ]
@@ -114,23 +114,23 @@
           {
             "term": "broadcast_in_dim",
             "occurrence": 1,
-            "definition": "Explicitly expands a tensor along new dimensions by repeating values. Turns the 768-dim bias into a 1x512x768 tensor.",
+            "definition": "Expands tensor along new dimensions. Turns 768-dim bias into 1x512x768.",
             "why": "Python's implicit broadcasting made explicit. What looked like one op is actually two broadcasts before the add."
           },
           {
             "term": "stablehlo.add",
-            "definition": "Elementwise addition across all 393,216 values (1x512x768).",
-            "why": "The + in x + bias lands here, but only after both broadcast steps have materialized matching shapes."
+            "definition": "Elementwise add across all 393,216 values.",
+            "why": "The + in x + bias lands here, after both broadcasts materialize matching shapes."
           },
           {
             "term": "stablehlo.maximum",
-            "definition": "Elementwise max of two tensors. ReLU lowered as max(x, zeros_tensor).",
+            "definition": "ReLU as max(x, zeros_tensor).",
             "why": "relu is sugar in Python. In MLIR it's explicit: compare every value against 0, keep the larger one."
           },
           {
             "term": "func.func private @relu",
-            "definition": "JAX preserves function call boundaries when tracing. The Python relu call becomes its own private function in the module.",
-            "why": "Function boundaries are a compilation hint. The compiler can choose to inline or keep it separate during optimization."
+            "definition": "JAX preserves function boundaries during tracing. relu becomes its own private function.",
+            "why": "Function boundaries are a compilation hint. The compiler can choose to inline or keep it separate."
           }
         ]
       }
@@ -185,44 +185,44 @@
       "annotations": [
         {
           "term": "-> (d2)",
-          "definition": "Reads the 1D bias at only the last dimension. d0 and d1 are not indexed -- their values are ignored. This is how broadcasting becomes explicit loop indexing.",
-          "why": "What Python made invisible, Linalg makes explicit: the bias is accessed at just one index, and the loop nest handles repetition."
+          "definition": "Reads bias at the last dimension only. d0 and d1 are ignored — broadcasting as explicit indexing.",
+          "why": "What Python made invisible, Linalg makes explicit: one index, loop nest handles repetition."
         },
         {
           "term": "(d0, 0, d2)",
-          "definition": "d1 is pinned to 0 regardless of the iterator value. The loop still visits all 512 positions in d1, but this input always reads from row 0.",
-          "why": "The second broadcast, spelled out as an indexing rule instead of an op."
+          "definition": "d1 pinned to 0. Loop visits all 512 positions in d1, but this input always reads row 0.",
+          "why": "The second broadcast as an indexing rule instead of an op."
         },
         {
           "term": "-> ()",
-          "definition": "Empty map: no indices. Returns the same scalar value for every iteration of the 3D loop nest.",
-          "why": "stablehlo.constant lowers to this: a single captured value read identically at every element position."
+          "definition": "Empty map. Returns the same scalar for every iteration of the 3D loop nest.",
+          "why": "stablehlo.constant lowers to this: one captured value, read identically at every position."
         },
         {
           "term": "tensor.empty()",
           "occurrence": 1,
-          "definition": "Allocates a new output buffer for this op. Five ops across @main and @relu = five allocations = five passes over 393,216 floats.",
+          "definition": "New output buffer. Five ops = five allocations = five passes over 393,216 floats.",
           "why": "This is the cost the fusion pass eliminates."
         },
         {
           "term": "iterator_types",
           "occurrence": 1,
-          "definition": "All three loop dimensions are parallel -- no loop-carried dependencies, every output element computed independently.",
-          "why": "Parallel iterators are also the condition for fusion. The pass can only merge linalg.generic ops whose iterators are all parallel."
+          "definition": "All three dimensions are parallel. No loop-carried dependencies.",
+          "why": "Parallel iterators are the condition for fusion. The pass only merges linalg.generic ops whose iterators are all parallel."
         },
         {
           "term": "^bb0",
           "occurrence": 1,
-          "definition": "The per-element scalar body. Code here runs once per output element.",
-          "why": "After fusion, multiple bb0 blocks merge into one, eliminating the intermediate buffers between them."
+          "definition": "Per-element scalar body. Runs once per output element.",
+          "why": "After fusion, multiple bb0 blocks merge into one, eliminating intermediate buffers."
         },
         {
           "term": "arith.addf",
-          "definition": "Float add in the arith dialect. stablehlo.add crossed a dialect boundary automatically during --stablehlo-legalize-to-linalg."
+          "definition": "Float add in the arith dialect. Crossed from stablehlo.add during legalization."
         },
         {
           "term": "arith.constant",
-          "definition": "stablehlo.constant became arith.constant when crossing into Linalg. Dialect boundaries are crossed automatically by legalization passes."
+          "definition": "Crossed from stablehlo.constant during legalization. Dialect boundaries are traversed automatically."
         }
       ]
     },
@@ -240,23 +240,23 @@
       "annotations": [
         {
           "term": "[#map, #map1, #map]",
-          "definition": "Three operands: 3D input, 1D bias, 3D output. The two broadcast ops were absorbed directly into the indexing maps. No intermediate broadcast buffers needed.",
-          "why": "Broadcasting is just an indexing pattern. The fusion pass recognized this and folded the broadcast ops into the combined loop's access maps."
+          "definition": "3D input, 1D bias, 3D output. Broadcasts absorbed into indexing maps — no intermediate buffers.",
+          "why": "Broadcasting is just an indexing pattern. The fusion pass folded the broadcast ops into the loop's access maps."
         },
         {
           "term": "tensor.empty()",
           "occurrence": 1,
-          "definition": "One allocation in @main, down from three. The two intermediate broadcast buffers are gone."
+          "definition": "One allocation, down from three. Intermediate broadcast buffers are gone."
         },
         {
           "term": "arith.maximumf %in, %cst",
-          "definition": "ReLU against a scalar f32 constant, not a broadcasted zero tensor. The constant was hoisted out of the loop and the zero-tensor broadcast eliminated.",
-          "why": "The fusion pass also simplified @relu internally, removing the zero-tensor materialization entirely."
+          "definition": "ReLU against a scalar constant, not a broadcasted zero tensor. Constant hoisted out of the loop.",
+          "why": "The fusion pass simplified @relu internally, removing the zero-tensor materialization."
         },
         {
           "term": "call @relu",
-          "definition": "Function boundaries are opaque to the fusion pass. The add and ReLU live in separate function scopes, so the pass cannot see them as a producer-consumer pair. Running --inline first removes this boundary.",
-          "why": "The fix is to inline before fusing."
+          "definition": "Function boundaries are opaque to the fusion pass. Add and ReLU in separate scopes can't be seen as a producer-consumer pair. --inline removes this boundary.",
+          "why": "Inline before fusing."
         }
       ]
     },
@@ -275,21 +275,21 @@
       "annotations": [
         {
           "term": "tensor.empty()",
-          "definition": "One allocation. Down from 5 across the unfused version."
+          "definition": "One allocation, down from 5."
         },
         {
           "term": "[#map, #map1, #map]",
-          "definition": "3D input, 1D bias (broadcast via index map), 3D output. All 5 StableHLO ops collapsed into a single loop nest.",
-          "why": "The 1D bias is accessed by #map1 = (d0,d1,d2) -> (d2), broadcasting across d0 and d1 for free via the indexing map."
+          "definition": "3D input, 1D bias, 3D output. All 5 StableHLO ops collapsed into one loop nest.",
+          "why": "#map1 = (d0,d1,d2) -> (d2) broadcasts bias across d0 and d1 for free via the indexing map."
         },
         {
           "term": "arith.addf %in, %in_0",
-          "definition": "%in is the input element, %in_0 is the bias value at position d2. The broadcast was absorbed into how %in_0 is indexed, not as a separate op."
+          "definition": "%in_0 is the bias at d2. Broadcast absorbed into indexing, not a separate op."
         },
         {
           "term": "arith.maximumf %2, %cst",
-          "definition": "ReLU inline: clamps the add result to 0 in the same loop body. The relu function is gone -- it was inlined, then fused.",
-          "why": "--inline eliminated the function boundary. --linalg-fuse-elementwise-ops then saw the add and relu as a direct producer-consumer pair and merged them."
+          "definition": "ReLU inline in the same loop body. relu function is gone — inlined, then fused.",
+          "why": "--inline removed the function boundary. --linalg-fuse-elementwise-ops saw add and relu as a producer-consumer pair and merged them."
         }
       ]
     },
