@@ -135,10 +135,5 @@
       "type": "component",
       "name": "AsciiHeatmap"
     },
-    {
-      "type": "callout",
-      "href": "https://github.com/src-kearney/remora",
-      "content": "I'm exploring signal-to-noise in remora, my ongoing compiler experiment."
-    }
   ]
 }
