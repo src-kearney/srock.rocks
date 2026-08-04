@@ -32,7 +32,7 @@
     "genre": "essay",
     "id": "1",
     "name": "Signal-to-Noise",
-    "published": false,
+    "published": true,
     "slug": "signal-to-noise",
     "tags": [
       "AI/ML",

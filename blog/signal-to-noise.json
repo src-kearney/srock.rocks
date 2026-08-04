@@ -1,0 +1,139 @@
+{
+  "slug": "signal-to-noise",
+  "title": "Signal-to-Noise",
+  "date": "2025-07-15",
+  "tags": [
+    "AI",
+    "Machine Learning",
+    "RecSys"
+  ],
+  "chunks": [
+    {
+      "type": "text",
+      "content": [
+        "What would you consider to be the signal-to-noise ratio of this video, which is livestreaming from mp4 to ascii? You might be able to identify a field of flowers blowing in the wind, intermittent cuts of the clapboard, or if you watch long enough, a purple convertible. But you must sift through the noise to find the signal that is the original movie [(source)](https://archive.org/details/200647_American_Choice_Outtakes_R6).",
+        "In machine-learning and statistical modeling, \"signal\" is the component of your data that carries **predictive information** about the quantity you're trying to estimate or classify.",
+        "Models take as input many features. Some carry more signal than others, and weighting them improves the overall ratio of signal to noise. But what is seen as high \"signal\" is in the eye of the beholder. For instance, if I were a beholder, I would say:"
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "> The type of recommendation with the highest signal-to-noise ratio is someone I know well telling me \"you should watch this, I think you'd like it\"."
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "```\n+--------------------------------+    +--------------------------------+\n|  Friend's Perception of Me     |───►|    Friend's Knowledge of       |\n|                                |    |          the Content           |\n+--------------------------------+    |                                |\n      ▲                               +--------------------------------+\n      │                                             │\n      │                                             ▼\n+--------------------------------+    +--------------------------------+\n|          My Feedback           |◄───|         Recommendation         |\n|                                |    | (\"Go in blind, you'll love it\")|\n+--------------------------------+    +--------------------------------+\n```"
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "Recommendation systems today simulate these core mechanisms. The system perceives me as a user, models the content, surfaces tailored recommendations, and retrains on my feedback. I try to be intentional with my feedback, to keep the [good movies](https://en.wikipedia.org/wiki/WALL-E) coming.",
+        "But what happens when the system learns from signals [I don't even know I'm sending](https://en.wikipedia.org/wiki/Dwell_time_(information_retrieval))?"
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "```\n┌──────────────────┐      ┌───────────────┐      ┌────────────────────┐\n│  user behavior   │ ───► │     model     │ ───► │    objective       │\n├──────────────────┤      ├───────────────┤      ├────────────────────┤\n│  likes           │      │  rec_v4.2     │      │  watch time        │\n│  pauses          │      │  weights      │      │  ad revenue        │\n│  scrolls         │      │  features     │      │  engagement        │\n│  comments        │      │               │      │  retention         │\n└──────────────────┘      └───────────────┘      └────────────────────┘\n```"
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "Platforms decide what your behavior means. Every like, pause, scroll, or comment could become a feature or training data. But the platform, not the user, decides which of these signals actually matter.",
+        "The food we eat shapes our physical health. That's why we have Nutrition Facts."
+      ]
+    },
+    {
+      "type": "image",
+      "imageUrl": "/content/nutrition-facts.jpg",
+      "alt": "Nutrition facts label"
+    },
+    {
+      "type": "text",
+      "content": [
+        "Nutrition Facts labels only became mandatory in the 1990s, after decades of rising health concerns and consumer pressure. Before that, food companies could say almost anything, and you had no standardized way to know what you were eating.",
+        "We rarely know all of the incentives and optimization targets behind the feeds we consume. It would be nice if individual pieces of content, or models, or algorithms came with **Nutrition Facts**.",
+        "-----",
+        "We can usually assume liking posts means we'll see similar content in the future. [\"Show me less of this\"](https://support.google.com/youtube/answer/6342839?hl=en&co=GENIE.Platform%3DAndroid) is a common and usually strong-signaled feature for controlling your feed, but it's sparingly clicked by users. Bluesky is doing [interesting work](https://bsky.social/about/blog/3-30-2023-algorithmic-choice) in the space of transparent and decentralized recommendation systems, but as of May 8 2026, have significantly fewer users than the most popular social apps.\n\nCutting edge model architectures have grown to satisfy recommendation at massive scale. Uber, [Instagram Explore](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/), and many others adopting the two-towers model architecture a few years ago. And [it turns out](https://arxiv.org/abs/1905.06874), the sequential nature of transformers lends itself well to ranking. Now recommenders are usually transformers with gating layers (MoE), with Anthropic and OpenAI doubling down on the \"bigger is better\" approach - throwing [eye-watering sums of cash](https://openai.com/index/announcing-the-stargate-project/) into pretraining colossal generative models. An extension of transformers, [Mixture of Experts](https://arxiv.org/abs/1701.06538), has gained strong traction among companies training frontier models. The appeal is simple: a model can have hundreds of billions of parameters, but only activate a small fraction of them per input. You get scale without proportional inference cost.",
+        "Despite these interactions, recommendation systems remain opaque. Engineers can trace signals, tweak hyperparameters, and watch drift in dashboards, but this level of control is rarely surfaced to the end user."
+      ]
+    },
+    {
+      "type": "side_by_side_code",
+      "left": {
+        "label": "user sees",
+        "content": "[ Recommended Post ]\n\n[ Like ]\n[ Dislike ]\n[ Share ]\n[ Comment ]\n\n[ Not interested ]"
+      },
+      "right": {
+        "label": "engineer sees",
+        "content": "model:      rec_transformer_v4.2\nuser_id:    0x4f2a  segment: 14-B\nab_variant: treatment_3\n\nfeature weights\n  recency_score       0.82  ████░░\n  engagement_hist     0.71  ███░░░\n  topic_affinity      0.94  █████░\n  collab_filter       0.68  ███░░░\n  watch_completion    0.55  ██░░░░\n  sentiment_signal    0.47  ██░░░░\n  social_graph_sim    0.39  █░░░░░\n\npredictions\n  ctr              4.3%\n  watch_time       847s\n  p(share)         0.021\n  p(long_session)  0.68\n\nhealth\n  embedding_drift  +0.12  WARNING\n  signal / noise    0.61  degrading\n  feature_coverage  94.2%"
+      }
+    },
+    {
+      "type": "text",
+      "content": [
+        "By now I hope to have convinced you that ML understandability is an important problem, and that there's a tremendous amount of experimentation left to do. And now, we're motivated to understand the _how_. To understand where this opacity comes from, you must first understand how these systems actually work.",
+        "-----"
+      ]
+    },
+    {
+      "type": "text",
+      "content": ["## Two Towers"]
+    },
+    {
+      "type": "component",
+      "name": "TwoTowers"
+    },
+    {
+      "type": "text",
+      "content": [
+        "The **[Two Towers](https://engineering.fb.com/2023/08/09/ml-applications/scaling-instagram-explore-recommendations-system/)** architecture splits retrieval into two independent encoders: one for the user, one for the item; each of which produces a dense embedding. We then can take the dot product between the two embeddings to compute similarity between users (e.g. scroller of instagram) and content (e.g. instagram posts). The main efficiency here comes from the ability to precompute content embeddings offline and indexing them with something like HNSW, pgvector, or FAISS. As a result, 2T shines at scale. Given a user embedding, you can search over millions to billions of precomputed content embeddings.",
+        "```\n user signals          item metadata\n     │                      │\n [user tower]          [item tower]\n     │                      │\n [embedding] ──── · ──── [embedding]\n                  │\n           similarity score\n              → top-k candidates\n```",
+        "A \"surprise me\" feature would be trivial to build a naive solution for: just inject noise into the query (user) vector before searching, and drift away from your search bubble. This tradeoff is called [exploration vs. exploitation](https://en.wikipedia.org/wiki/Exploration-exploitation_dilemma), and it's one of the oldest problems in recommendation.",
+        "-----"
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "## Transformer-based recommendation",
+        "**[BST](https://arxiv.org/abs/1905.06874)** (Alibaba, 2019) applies transformer self-attention across a user's ordered interaction history. The model learns which past items are most relevant to the current moment and encodes *time offset* from the target item instead of absolute position.",
+        "```\n item₋₄   item₋₃   item₋₂   item₋₁   target\n (Δt=−4d) (Δt=−3d) (Δt=−1d) (Δt=−2h)   │\n   │         │         │         │        │\n   └─────────┴────── attention ──┴────────┘\n                         │\n                   user embedding\n```",
+        "The model reads your history like a sentence. Tokens in order, like words. For Alibaba, that might be the last ten products you browsed. Imagine if you could see and edit that sentence? There's actually no technical barrier here."
+      ]
+    },
+    {
+      "type": "component",
+      "name": "RecSys"
+    },
+    {
+      "type": "text",
+      "content": [
+        "-----",
+        "## Mixture of Experts",
+        "**[Mixture of Experts](https://arxiv.org/abs/1701.06538)** (Shazeer et al., 2017) replaces a single feedforward network with N specialized experts and a gating network that routes each token to only the top-k of them. This way, most of the model is idle on any given input. You get a much larger effective model for roughly the same compute cost per forward pass.",
+        "```\n          input token\n               │\n        [gating network]\n       ┌───┬───┴───┬───┐\n     FFN₁ FFN₂  FFN₃ FFN₄   ← N experts\n       ✗    ✓     ✓    ✗    ← top-2 selected\n            │     │\n       [weighted sum]\n            │\n          output\n```"
+      ]
+    },
+    {
+      "type": "text",
+      "content": [
+        "MoE makes the structure visible but not legible. Five years ago, many production systems handled specialization explicitly: image team trained an image model, text team trained a text model, ranking team trained a ranking model. Each expert was a human decision: named, purposeful, clearly defined scope. MoE inverts this entirely by letting a single centralized training task discover its own specializations. The experts exist and the routing is real, but what each expert actually learned to represent is inferred at training time and only recoverable through reverse engineering. We traded legible specialization for learned specialization. The efficiency gains are real, along with the opacity.",
+        "Anthropic's mechanistic interpretability team built [sparse autoencoders](https://transformer-circuits.pub/2023/monosemantic-features/index.html) specifically because neural networks don't label their own internals. Individual neurons activate for dozens of unrelated concepts simultaneously, and nothing in the architecture tells you what any of them mean. MoE gives you parameter efficiency at inference time, visible routing structure, and anonymous experts.",
+        "-----",
+        "Opacity is an infrastructure problem and a product decision. It sure would be nice to see a high-resolution view of all the various optimization targets behind recommenders. And it would be nice to see (and edit) all of the features going into models I use. If DMing photos of [Mystic Remora](https://scryfall.com/card/ice/87/mystic-remora) to my friends leads to my feed being smothered in MTG content, then I'll intentionally DM my friends more photos of MTG cards. Additionally, I'd love to have some more explicit customizability tools for the algorithm. In opaque systems built on inferred behavioral signals, solving these problems may lead to the clearest signal the model will ever receive.",
+        "We are the experts in our own taste, after all.",
+        "-----"
+      ]
+    },
+    {
+      "type": "component",
+      "name": "AsciiHeatmap"
+    }
+  ]
+}
