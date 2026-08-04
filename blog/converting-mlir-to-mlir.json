@@ -138,9 +138,9 @@
     {
       "type": "text",
       "content": [
-        "In Python, you can write a single, concise line of code to accomplish something powerful without worrying about the 5 triple kickflips it has to do under the hood to accomplish that something. The kickflips are abstracted away.",
-        "One Python expression (`relu(x + bias)`) became two broadcasts, an add, a constant, another broadcast, and a max, when we exported the JAX to StableHLO.",
-        "This verbosity is the point - StableHLO makes operations implicit in JAX explicit in IR. Python's `relu` is just `relu` (the thing us humans named it), but in StableHLO it's `max(x, 0)`. It also reveals an optimization opportunity: those five ops: broadcast, broadcast, add, broadcast, and max, each touch every one of the `1 × 512 × 768 = 393,216` values in the tensor independently. A compiler can fuse them into one."
+        "In Python, you can write a concise line of code to accomplish something powerful without worrying about the triple kickflips it has to do under the hood to accomplish said something powerful. At least when compared to a lower level language like C, in Python, many kickflips are abstracted away from the programmer.",
+        "Where JAX is the language representing what the programmer means in ML vocabulary, StableHLO speaks the language of tensor semantics. JAX's `relu` is just `relu` (the thing us humans named it), but in StableHLO it's `max(x, 0)`. One JAX expression (`relu(x + bias)`) became two broadcasts, an add, a constant, another broadcast, and a max, when we exported the JAX to StableHLO.",
+        "This reveals an optimization opportunity. Those five ops: broadcast, broadcast, add, broadcast, and max, each touch every one of the `1 × 512 × 768 = 393,216` values in the tensor independently. When it's structured into a compiler problem, these things are all just ops in a graph, and they can be fused together."
       ]
     },
     {
