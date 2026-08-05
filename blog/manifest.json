@@ -56,7 +56,7 @@
   {
     "id": "10",
     "name": "You can't subpoena a weight matrix",
-    "published": true,
+    "published": false,
     "slug": "you-cant-subpoena-a-weight-matrix",
     "tags": [
       "AI/ML"
