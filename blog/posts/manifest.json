@@ -87,14 +87,5 @@
     ],
     "timestamp": "2025-09-18T00:00:00Z",
     "type": "blog"
-  },
-  {
-    "id": "8",
-    "name": "blog test",
-    "published": false,
-    "slug": "blog-test",
-    "tags": [],
-    "timestamp": "2026-07-20T00:00:00Z",
-    "type": "blog"
   }
 ]
